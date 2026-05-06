@@ -1,14 +1,44 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
+    <!-- Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-*****"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-*****');
+    </script>
+
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>日中鍼認定Basic therapist練習ページ</title>
+    <title>日中鍼認定<br>Basic therapist練習ページ</title>
     <style>
         :root { --main-color: #2c3e50; --accent-color: #27ae60; --error-color: #e74c3c; --bg-color: #f4f7f6; }
-        body { font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif; background-color: var(--bg-color); color: var(--main-color); margin: 0; padding: 20px; display: flex; justify-content: center; }
+        
+        body { 
+            font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif; 
+            background-color: var(--bg-color); 
+            color: var(--main-color); 
+            margin: 0; 
+            padding: 40px 20px 20px; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+        }
+
+        .top-thumbnail {
+            width: 100%;
+            max-width: 600px;
+            height: auto;
+            margin-bottom: 30px; 
+            border-radius: 8px;  
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1); 
+        }
+
         .container { background: white; max-width: 600px; width: 100%; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-align: center; box-sizing: border-box; }
-        .hidden { display: none; }
+        .hidden { display: none !important; }
         h1 { font-size: 1.4rem; margin-bottom: 20px; border-bottom: 2px solid var(--accent-color); padding-bottom: 10px; color: var(--main-color); }
         input[type="password"], select { width: 90%; padding: 12px; margin: 10px 0; border: 1px solid #ccc; border-radius: 6px; font-size: 1rem; }
         button { background-color: var(--accent-color); color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-size: 1rem; margin: 10px 5px; transition: 0.3s; min-width: 120px; }
@@ -27,13 +57,18 @@
         #quiz-header { font-size: 0.85rem; color: #888; margin-bottom: 5px; text-align: right; }
         
         #category-tag { display: inline-block; background: var(--accent-color); color: white; padding: 5px 15px; border-radius: 20px; font-size: 1.1rem; font-weight: bold; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        
+        .analytics-note { font-size: 0.75rem; color: #95a5a6; margin-top: 25px; line-height: 1.4; text-align: center; }
     </style>
 </head>
 <body>
 
+<!-- メイン画面移行後に表示される画像 (初期状態はhidden) -->
+<img src="wakaru_chuui.jpg" id="main-thumbnail" alt="注意" class="top-thumbnail hidden">
+
 <div class="container">
     <div id="view-login">
-        <h1>日中鍼認定Basic Therapist 問題トレーニング・ログイン</h1>
+        <h1>日中鍼認定Basic Therapist<br>問題トレーニング・ログイン</h1>
         <p>パスワードを入力してください</p>
         <input type="password" id="password-input" placeholder="Password">
         <br>
@@ -52,6 +87,10 @@
         
         <br>
         <button onclick="startQuiz()">学習を開始する</button>
+
+        <p class="analytics-note">
+            ※当サイトでは利用状況把握のためGoogle アナリティクスを使用しています。データは匿名で収集されており、個人を特定するものではありません。
+        </p>
     </div>
 
     <div id="view-quiz" class="hidden">
@@ -90,7 +129,8 @@
     let score = 0;
     const PASS = "nicchushin2026"; 
 
-    fetch('questions.json')
+    // キャッシュ回避処理を追加
+    fetch('questions.json?cache=' + new Date().getTime())
         .then(response => {
             if (!response.ok) throw new Error('Network response was not ok');
             return response.json();
@@ -123,6 +163,8 @@
     function checkPassword() {
         const input = document.getElementById('password-input').value;
         if(input === PASS) {
+            // パスワード正解時にサムネイル画像を表示させる
+            document.getElementById('main-thumbnail').classList.remove('hidden');
             showView('view-setup');
         } else {
             alert("パスワードが正しくありません");
@@ -145,7 +187,7 @@
     }
 
     function showView(id) {
-        // すべての画面を隠す
+        // コンテナ内のすべての画面を隠す
         document.querySelectorAll('.container > div').forEach(div => div.classList.add('hidden'));
         // 指定した画面だけ表示する
         document.getElementById(id).classList.remove('hidden');
@@ -154,12 +196,21 @@
     function startQuiz() {
         const cat = document.getElementById('category-select').value;
         const num = parseInt(document.getElementById('question-range').value);
-        targetQuestions = allQuestions.filter(q => cat === "すべて" || q.category === cat);
-        targetQuestions = targetQuestions.sort(() => Math.random() - 0.5).slice(0, num);
-        if (targetQuestions.length === 0) {
+        let pool = allQuestions.filter(q => cat === "すべて" || q.category === cat);
+        
+        if (pool.length === 0 || num === 0) {
             alert("該当する問題がありませんでした");
             return;
         }
+
+        // 確実なランダム化（フィッシャー–イェーツのシャッフル）
+        let shuffledPool = [...pool];
+        for (let i = shuffledPool.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [shuffledPool[i], shuffledPool[j]] = [shuffledPool[j], shuffledPool[i]];
+        }
+
+        targetQuestions = shuffledPool.slice(0, num);
         currentIndex = 0;
         score = 0;
         showView('view-quiz');
@@ -198,7 +249,9 @@
 
     function toggleExplanation() {
         const box = document.getElementById('explanation-box');
-        box.textContent = targetQuestions[currentIndex].explanation;
+        const rawExp = targetQuestions[currentIndex].explanation || "";
+        // 解説の「・」を使わずにつなげる処理を適用
+        box.textContent = rawExp.replace(/・/g, "");
         box.classList.toggle('hidden');
     }
 
